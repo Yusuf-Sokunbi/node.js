@@ -1,0 +1,2 @@
+This is an async file
+This is an appended line in async file
