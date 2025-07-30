@@ -1,13 +1,133 @@
+// const http = require('http');
+
+// const server = http.createServer((req, res) => {
+//     console.log(req, "req")
+//     res.writeHead(200, { 'Content-Type': 'text/plain' });
+//     res.end(`<h1>Hello the world of Developer with NODE JS</h1>`);
+// });
+
+// const PORT = 3000;
+// server.listen(PORT, () => {
+    
+//     console.log(`Server is running on port ${PORT}`);
+// });
+
+//    const server = http.createServer((req, res) => {
+//     console.log('Request Header:', req.headers);
+
+//     const userAgent = req.headers['user-agent'];
+//     const acceptLanguage = req.headers['accept-language'];
+    
+//     res.writeHead(200, { 'Content-Type': 'text/plain' });
+//     res.end(`User-Agent:,${userAgent}\nAccept-Language: ${acceptLanguage}`);
+//    }).listen(3000, () => {
+//     console.log('Server is running on port 3000');
+//    });
+
 const http = require('http');
+const { URL } = require('url');
+
+// In-memory data store (for demonstration)
+let todos = [
+  { id: 1, task: 'Learn Node.js', completed: false },
+  { id: 2, task: 'Build an API', completed: false }
+];
 
 const server = http.createServer((req, res) => {
-    console.log(req, "req")
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end(`Hello the world of Developer with NODE JS`);
+  const { method, url } = req;
+  const parsedUrl = new URL(url, `http://${req.headers.host}`);
+  const pathname = parsedUrl.pathname;
+
+  // Set CORS headers (for development)
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  // Handle preflight requests
+  if (method === 'OPTIONS') {
+    res.writeHead(204);
+    res.end();
+    return;
+  }
+
+  // Route: GET /todos
+  if (method === 'GET' && pathname === '/todos') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(todos));
+  }
+  // Route: POST /todos
+  else if (method === 'POST' && pathname === '/todos') {
+    let body = '';
+    req.on('data', chunk => {
+      body += chunk.toString();
+    });
+
+    req.on('end', () => {
+      try {
+        const newTodo = JSON.parse(body);
+        newTodo.id = todos.length > 0 ? Math.max(...todos.map(t => t.id)) + 1 : 1;
+        todos.push(newTodo);
+        res.writeHead(201, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(newTodo));
+      } catch (error) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid JSON' }));
+      }
+    });
+  }
+
+  // Route: PUT /todos/:id
+  else if (method === 'PUT' && pathname.startsWith('/todos/')) {
+    const id = parseInt(pathname.split('/')[2]);
+    let body = '';
+
+    req.on('data', chunk => {
+      body += chunk.toString();
+    });
+
+    req.on('end', () => {
+      try {
+        const updatedTodo = JSON.parse(body);
+        const index = todos.findIndex(t => t.id === id);
+
+        if (index === -1) {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Todo not found' }));
+        } else {
+          todos[index] = { ...todos[index], ...updatedTodo };
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(todos[index]));
+        }
+      } catch (error) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid JSON' }));
+      }
+    });
+  }
+
+  // Route: DELETE /todos/:id
+  else if (method === 'DELETE' && pathname.startsWith('/todos/')) {
+    const id = parseInt(pathname.split('/')[2]);
+    const index = todos.findIndex(t => t.id === id);
+
+    if (index === -1) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Todo not found' }));
+    } else {
+      todos = todos.filter(t => t.id !== id);
+      res.writeHead(204);
+      res.end();
+    }
+  }
+
+  // 404 Not Found
+  else {
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Not Found' }));
+  }
 });
 
 const PORT = 3000;
 server.listen(PORT, () => {
-    
-    console.log(`Server is running on port ${PORT}`);
+  console.log(`Server running at http://localhost:${PORT}/`);
 });
